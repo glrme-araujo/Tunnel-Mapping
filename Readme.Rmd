@@ -1,0 +1,126 @@
+---
+title: "Flow Mapping Plots"
+output: html_document
+date: "2024-08-21"
+---
+
+## Installing Libraries
+
+```{r setup, include=FALSE}
+# INSTALAÇÃO BIBLIOTECAS
+
+library("readxl")    # LER EXCEL
+library("dplyr")     # MANIPULAR DATAFRAME
+library("ggplot2")   # PLOTAR GRAFICOS
+library("viridis")   # PALETA DE CORES VIRIDIS
+library('gganimate') # CRIAR GIF
+library('writexl')   # SALVAR EXCEL
+library('akima')
+library('gridExtra')
+```
+
+## Flow Mapping Plots
+
+This was a study of flow of a air tunnel. The tunnel has 500x500mm of section area, and we did measurement of pressure each 50mm until complete 400x400mm section area, using a Pitot Tube with the a digital manometer, thus totaling 81 points of pressure measured. Was realized three mappings, each in different distance from the begin of tunnel face, the first mapping was done with 50mm of distance of begin of the tunnel, the next mappings was 200mm and 300mm. For the each mapping was generated a matrix of this results, with the coordinates of each pressure.
+
+## Database Tratament
+
+Importing, combining and identifying the results of each mapping.
+
+```{r Database Tratament,echo = FALSE}
+map_50 = read_excel("Mapeamento  As Left - 50mm.xlsx") 
+map_200 = read_excel("Mapeamento As Left - 200mm.xlsx")
+map_300 = read_excel("Mapeamento  As Left - 300mm.xlsx")
+data <- bind_rows(
+  map_50 %>% mutate(Y = 50),
+  map_200 %>% mutate(Y = 200),
+  map_300 %>% mutate(Y = 300)
+)
+data %>% select(X,Y,Z,Pa)  %>%
+  print(widht=20)
+
+```
+
+## Interpolation Function
+
+We did create a function what interpolate the values of pressure between the mappings.
+
+```{r Interpolation, echo = FALSE }
+interpolate_y <- function(data, y1, y2, new_y) {
+  data_y1 <- data %>% filter(Y == y1)
+  data_y2 <- data %>% filter(Y == y2)
+  
+  interpolated <- data_y1 %>%
+    inner_join(data_y2, 
+               by = c("X", "Z"), 
+               suffix = c("_y1", "_y2")) %>%
+    mutate(
+      Y = new_y,
+      Pa = Pa_y1 + (Pa_y2 - Pa_y1) * (new_y - y1) / (y2 - y1)) %>%
+      select(X, Y,Z, Pa)
+  return(interpolated)
+}
+```
+
+```{r interpolating values,echo = FALSE}
+new_data_100 <- interpolate_y(data, 50, 200, 100)
+new_data_150 <- interpolate_y(data, 50, 200, 150)
+new_data_250 <- interpolate_y(data, 200, 300, 250)
+as_left_final_data <- bind_rows(data, new_data_100, new_data_150,new_data_250)
+
+```
+
+## Plotting the mappings
+
+Below we can see the heatmaps of mappings of each distance.
+
+```{r Ploting, echo=FALSE}
+create_plot <- function(data, title) {
+  ggplot(select(data, X, Z, Pa), aes(X, Z)) +
+    geom_raster(aes(fill = Pa), interpolate = TRUE) +
+    scale_fill_viridis_c() +
+    labs(y = "height - Z axis", x = "width - X axis", fill = "Pa") +
+    scale_x_continuous(breaks = seq(50, 500, by = 50),
+                       labels = function(x) paste0(x, " mm")) +
+    scale_y_continuous(breaks = seq(50, 500, by = 50),
+                       labels = function(x) paste0(x, " mm")) +
+    ggtitle(title) +
+    theme_bw() +
+    theme(
+      plot.title = element_text(size = 10),    # Tamanho do título
+      axis.title = element_text(size = 8),     # Tamanho dos títulos dos eixos
+      axis.text = element_text(size = 6),      # Tamanho dos textos dos eixos
+      legend.title = element_text(size = 8),   # Tamanho do título da legenda
+      legend.text = element_text(size = 6),    # Tamanho do texto da legenda
+      plot.margin = margin(5, 5, 5, 5)         # Margens para ajustar o espaço
+    )
+}
+
+
+
+g1 <- create_plot(map_50, "Mapping 50")
+g2 <- create_plot(map_200, "Mapping 200")
+g3 <- create_plot(map_300, "Mapping 300")
+grid.arrange(g1, g2, g3, ncol = 3, widths = c(1, 1, 1))
+
+```
+
+## Final Result
+
+The final result is a gif of the heat map that goes 50mm until 300mm with an interpolation of intermediate results.
+
+```{r GIF,echo= FALSE}
+ggplot(as_left_final_data, aes(x = X, y = Z, fill = Pa)) +
+  geom_raster(aes(fill = Pa), interpolate = TRUE) +
+  scale_fill_viridis_c() +
+  transition_time(Y) +
+  labs(y= "Altura - Eixo Z", 
+       x ="Largura - Eixo X", 
+       title = "Mapeamento as Left - Variação de Pa com Y:{round(frame_time, 0)}")+
+  scale_x_continuous(breaks = seq(50,500,by =50), 
+                     labels = function(y) paste0(y, "mm"))+
+  
+  scale_y_continuous(breaks = seq(50,500,by =50),
+                     labels = function(y) paste0(y, "mm"))+
+  theme_bw()
+```
