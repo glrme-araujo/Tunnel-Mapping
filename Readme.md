@@ -46,7 +46,7 @@ This is a heatmap of flow in section area with 300mm of distance from the begin.
 
   
 ## Conclusion
-The differences between pressures is lower 1% in each mapping, even with the distance of between they. We can admit that is very stable and uniform.And we created a gif of the heat map that goes 50mm until 300mm with an interpolation of intermediate results.
+The differences between pressures is lower than 1% in each mapping, even with the distance of between they. We can admit that is very stable and uniform.And we created a gif of the heat map that goes 50mm until 300mm with an interpolation of intermediate results.
 
 <div aling="center">
 <img src = "https://github.com/user-attachments/assets/12c94394-3f50-431f-b42d-707976b4ffe5"
